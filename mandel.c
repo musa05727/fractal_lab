@@ -1,5 +1,6 @@
-/// 
-//  mandel.c
+/// Musa Abdul Hamid 
+//  Lab10
+//  mandel.c 
 //  Based on example code found here:
 //  https://users.cs.fiu.edu/~cpoellab/teaching/cop4610_fall22/project3.html
 //
