@@ -8,4 +8,4 @@ The Mandelbrot program was modified to generate 50 images using multiprocessing.
 
 ![Runtime vs. Number of Child Processes](cpelab10.png)
 
-As the number of child process increased, the time the program took to generate 50 images decreased. 
+As the number of child processes increased, the time the program took to generate 50 images decreased. 
