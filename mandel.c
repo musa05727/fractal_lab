@@ -4,12 +4,16 @@
 //  https://users.cs.fiu.edu/~cpoellab/teaching/cop4610_fall22/project3.html
 //
 //  Converted to use jpg instead of BMP and other minor changes
-//  
+//  ffmpeg -framerate 10 -i mandel%d.jpg mandel.mp4
+//  gcc mandel.c jpegrw.c -o mandel -ljpeg -lm
+///
 ///
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include "jpegrw.h"
+#include <sys/wait.h>
+#include <math.h>
 
 // local routines
 static int iteration_to_color( int i, int max );
@@ -25,7 +29,6 @@ int main( int argc, char *argv[] )
 
 	// These are the default configuration values used
 	// if no command line arguments are given.
-	const char *outfile = "mandel.jpg";
 	double xcenter = 0;
 	double ycenter = 0;
 	double xscale = 4;
@@ -33,11 +36,12 @@ int main( int argc, char *argv[] )
 	int    image_width = 1000;
 	int    image_height = 1000;
 	int    max = 1000;
+	int    process_num = 1;
 
 	// For each command line argument given,
 	// override the appropriate configuration value.
 
-	while((c = getopt(argc,argv,"x:y:s:W:H:m:o:h"))!=-1) {
+	while((c = getopt(argc,argv,"x:y:s:W:H:m:n:h"))!=-1) {
 		switch(c) 
 		{
 			case 'x':
@@ -58,36 +62,78 @@ int main( int argc, char *argv[] )
 			case 'm':
 				max = atoi(optarg);
 				break;
-			case 'o':
-				outfile = optarg;
-				break;
+			case 'n':
+				process_num = atoi(optarg); 
+				break; 
 			case 'h':
 				show_help();
 				exit(1);
 				break;
+			
 		}
 	}
+	imgRawImage* img; 
 
-	// Calculate y scale based on x scale (settable) and image sizes in X and Y (settable)
-	yscale = xscale / image_width * image_height;
+	int num_of_children = 0; 
+	int pid; 
+	
+	for(int i = 0; i < 50; i++){
+		if(num_of_children == process_num){
+            if(wait(NULL) == -1){
+                perror("wait failed");
+                exit(1);
+            }
+            num_of_children--;
+        }
+		pid = fork(); 
+		if(pid == -1){
+			perror("fork");
+			exit(1); 
+		}
+		
+		//child process
+		if(pid == 0){
+			
+			xscale = xscale * pow(0.95, i);
+			yscale = xscale / image_width * image_height;
+			char filename[13];
+            sprintf(filename, "mandel%d.jpg", i);
+			// Display the configuration of the image.
+			printf("mandel: x=%lf y=%lf xscale=%lf yscale=%1f max=%d outfile=%s\n",xcenter,ycenter,xscale,yscale,max,filename);
+			// Create a raw image of the appropriate size.
 
-	// Display the configuration of the image.
-	printf("mandel: x=%lf y=%lf xscale=%lf yscale=%1f max=%d outfile=%s\n",xcenter,ycenter,xscale,yscale,max,outfile);
+			img = initRawImage(image_width,image_height);
 
-	// Create a raw image of the appropriate size.
-	imgRawImage* img = initRawImage(image_width,image_height);
+			// Fill it with a black
+			setImageCOLOR(img,0);
 
-	// Fill it with a black
-	setImageCOLOR(img,0);
+			// Compute the Mandelbrot image
+			compute_image(img,xcenter-xscale/2,xcenter+xscale/2,ycenter-yscale/2,ycenter+yscale/2,max);
 
-	// Compute the Mandelbrot image
-	compute_image(img,xcenter-xscale/2,xcenter+xscale/2,ycenter-yscale/2,ycenter+yscale/2,max);
+			// Save the image in the stated file.
+			
+			storeJpegImageFile(img, filename);
+			freeRawImage(img); 
+			exit(0); 
 
-	// Save the image in the stated file.
-	storeJpegImageFile(img,outfile);
+			
+			
+		}
+		//parent
+		num_of_children++; 
+		
 
-	// free the mallocs
-	freeRawImage(img);
+	}
+	while(num_of_children > 0){
+        if(wait(NULL) == -1){
+            perror("wait");
+            exit(1);
+        }
+        num_of_children--;
+    }
+	
+	
+	
 
 	return 0;
 }
